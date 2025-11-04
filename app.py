@@ -19,6 +19,8 @@ import time
 load_dotenv()
 
 app = Flask(__name__)
+# Configure for subpath deployment
+app.config['APPLICATION_ROOT'] = os.getenv('APPLICATION_ROOT', '/voter')
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'temp-secret-key')
 # MySQL Config
 app.config['MYSQL_HOST'] = os.getenv('MYSQL_HOST', 'localhost')
@@ -750,6 +752,26 @@ def delete_dedupe_file(dedupe_id):
     except Exception as e:
         flash(f'Delete failed: {e}', 'danger')
     return redirect(url_for('history'))
+
+# WSGI middleware for subpath deployment
+class SubpathMiddleware:
+    def __init__(self, app, subpath):
+        self.app = app
+        self.subpath = subpath.rstrip('/')
+    
+    def __call__(self, environ, start_response):
+        # Set SCRIPT_NAME for subpath (from X-Script-Name header or config)
+        script_name = environ.get('HTTP_X_SCRIPT_NAME', '')
+        if not script_name and self.subpath:
+            script_name = self.subpath
+        if script_name:
+            environ['SCRIPT_NAME'] = script_name
+        return self.app(environ, start_response)
+
+# Wrap app with subpath middleware if APPLICATION_ROOT is set
+app_root = app.config.get('APPLICATION_ROOT', '')
+if app_root and app_root != '/':
+    app.wsgi_app = SubpathMiddleware(app.wsgi_app, app_root)
 
 if __name__ == '__main__':
     app.run(debug=True)
