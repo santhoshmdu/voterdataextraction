@@ -1,0 +1,17 @@
+flask
+flask-login
+flask-mysqldb
+mysql-connector-python
+python-dotenv
+google-auth
+google-auth-oauthlib
+requests
+gunicorn
+pandas
+openpyxl
+pdf2image
+opencv-python-headless
+pillow
+google-generativeai
+asyncio
+concurrent-log-handler

@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Duplicate Results - Voter Data Extractor</title>
+  <link rel="icon" type="image/png" href="/static/favicon.png">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #f7f9ff; }
+    .pane-row { display: flex; gap: 1rem; height: calc(100vh - 64px); padding: 12px; }
+    #leftPane { flex: 1 1 auto; min-width: 360px; overflow: hidden; }
+    #rightPane { width: 360px; min-width: 300px; }
+    .card { border-radius: 12px; box-shadow: 0 6px 14px rgba(16,24,40,.06); }
+    .card-header { background: #f7f9fc; font-weight: 600; }
+    .table-wrap { border: 1px solid #e6ebf2; border-radius: 10px; overflow: auto; }
+    .table { table-layout: fixed; margin-bottom: 0; }
+    .table thead th { background: #eef3fb; position: sticky; top: 0; z-index: 2; padding: .5rem .75rem; }
+    .table td, .table th { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: .28rem .5rem; }
+    .col-expanded { white-space: normal !important; text-overflow: clip !important; }
+    th.resizable { position: relative; }
+    th .resizer { position: absolute; right: 0; top: 0; width: 6px; height: 100%; cursor: col-resize; user-select: none; }
+    th .resizer:after { content: ''; position: absolute; right: 2px; top: 25%; bottom: 25%; width: 2px; background: #c7cfdb; border-radius: 1px; }
+    #top-scroll { height: 16px; overflow-x: auto; overflow-y: hidden; border: 1px solid #e6ebf2; border-radius: .4rem; background: #fafbff; }
+    #top-scroll-inner { height: 1px; }
+    table.fixed-cols { width: 2100px; }
+    table.fixed-cols thead th:nth-child(1), table.fixed-cols tbody td:nth-child(1) { width: 260px; }
+    table.fixed-cols thead th:nth-child(2), table.fixed-cols tbody td:nth-child(2) { width: 80px; }
+    table.fixed-cols thead th:nth-child(3), table.fixed-cols tbody td:nth-child(3) { width: 140px; }
+    table.fixed-cols thead th:nth-child(4), table.fixed-cols tbody td:nth-child(4) { width: 220px; }
+    table.fixed-cols thead th:nth-child(5), table.fixed-cols tbody td:nth-child(5) { width: 240px; }
+    table.fixed-cols thead th:nth-child(6), table.fixed-cols tbody td:nth-child(6) { width: 120px; }
+    table.fixed-cols thead th:nth-child(7), table.fixed-cols tbody td:nth-child(7) { width: 80px; }
+    table.fixed-cols thead th:nth-child(8), table.fixed-cols tbody td:nth-child(8) { width: 110px; }
+    table.fixed-cols thead th:nth-child(9), table.fixed-cols tbody td:nth-child(9) { width: 140px; }
+    table.fixed-cols thead th:nth-child(10), table.fixed-cols tbody td:nth-child(10) { width: 120px; }
+    table.fixed-cols thead th:nth-child(11), table.fixed-cols tbody td:nth-child(11) { width: 120px; }
+    table.fixed-cols thead th:nth-child(12), table.fixed-cols tbody td:nth-child(12) { width: 220px; }
+    .brand-logo { height:28px; margin-right:6px; }
+    .navbar { background:#ffffff; border-bottom:1px solid #e6ebf2; }
+    .navbar .btn { border-color:#d0d7e2; color:#0b132b; }
+    .navbar .btn:hover { background:#eef3fb; color:#0b132b; }
+    .navbar .navbar-brand { color:#0b132b; }
+    .usage-chip { background:#eef3fb; color:#0b132b; border:1px solid #d0d7e2; padding:.2rem .5rem; border-radius:999px; }
+  </style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg border-bottom">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="/"><img class="brand-logo" src="/static/logo.png" alt="Aram Analytics">Aram Analytics</a>
+    <div class="d-flex align-items-center gap-2">
+      <span class="small usage-chip">{% if has_api_key %}Using your API key{% elif usage_left is not none %}Uses left: {{ usage_left }} / 5{% endif %}</span>
+      <a class="btn btn-outline-secondary btn-sm" href="/settings">API Key</a>
+      <a class="btn btn-outline-secondary btn-sm" href="/history">History</a>
+      <a href="/logout" class="btn btn-outline-secondary btn-sm">Logout</a>
+    </div>
+  </div>
+</nav>
+<div class="pane-row">
+  <div id="leftPane">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Duplicates by: {{ ', '.join(fields) }}</span>
+        <div class="d-flex gap-2">
+          <form action="/dedupe/save" method="post">
+            <button class="btn btn-success btn-sm" type="submit" {% if not table_html %}disabled{% endif %}>Save Result</button>
+          </form>
+          <form action="/dedupe/discard" method="post">
+            <button class="btn btn-outline-secondary btn-sm" type="submit">Discard</button>
+          </form>
+          <a class="btn btn-outline-secondary btn-sm" href="/">← Back</a>
+        </div>
+      </div>
+      <div class="card-body d-flex flex-column">
+        <div id="top-scroll" class="mb-2"><div id="top-scroll-inner"></div></div>
+        <div id="data-table-scroll" class="table-wrap flex-grow-1">
+          {% if table_html %}
+            <div id="tableWrap" class="expandable-table">{{ table_html|safe }}</div>
+          {% else %}
+            <div class="alert alert-info m-2">{{ message or 'No duplicates found.' }}</div>
+          {% endif %}
+        </div>
+        {% if tmp_path %}<div class="form-text mt-2">Temporary file (unsaved): {{ tmp_path }}</div>{% endif %}
+      </div>
+    </div>
+  </div>
+  <div id="rightPane">
+    <div class="card h-100">
+      <div class="card-header">Adjust Fields & Rerun</div>
+      <div class="card-body">
+        <form action="/dedupe" method="post" id="dedupe-form">
+          <p class="small text-muted">Pick 1–4 fields and run again without leaving this page.</p>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="fields" value="Name" id="f_name">
+            <label class="form-check-label" for="f_name">Name</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="fields" value="Father/Husband Name" id="f_fh">
+            <label class="form-check-label" for="f_fh">Father/Husband Name</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="fields" value="Age" id="f_age">
+            <label class="form-check-label" for="f_age">Age</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="fields" value="House Number" id="f_house">
+            <label class="form-check-label" for="f_house">House Number</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="fields" value="VoterID" id="f_vid">
+            <label class="form-check-label" for="f_vid">VoterID</label>
+          </div>
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" name="fields" value="Gender" id="f_gender">
+            <label class="form-check-label" for="f_gender">Gender</label>
+          </div>
+          <button class="btn btn-warning w-100" type="submit">Rerun Dedupe</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  (function(){
+    const wrap = document.getElementById('tableWrap');
+    const scroller = document.getElementById('data-table-scroll');
+    const topScroll = document.getElementById('top-scroll');
+    const topInner = document.getElementById('top-scroll-inner');
+    if(!wrap || !scroller || !topScroll || !topInner) return;
+    const table = wrap.querySelector('table');
+    if(!table) return;
+    table.classList.add('fixed-cols');
+    const headers = table.querySelectorAll('thead th');
+    headers.forEach((th) => th.classList.add('resizable'));
+    headers.forEach((th, idx) => {
+      th.addEventListener('click', (e) => { if(e.target.classList.contains('resizer')) return; const rows = table.querySelectorAll('tr'); rows.forEach(r => { const cells = r.querySelectorAll('th, td'); if(cells[idx]) cells[idx].classList.toggle('col-expanded'); }); });
+      const resizer = document.createElement('div'); resizer.className = 'resizer'; th.appendChild(resizer);
+      let startX, startWidth;
+      const onMouseMove = (ev) => { const dx = ev.clientX - startX; th.style.width = Math.max(60, startWidth + dx) + 'px'; syncWidth(); };
+      const onMouseUp = () => { document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('mouseup', onMouseUp); };
+      resizer.addEventListener('mousedown', (ev) => { startX = ev.clientX; startWidth = th.getBoundingClientRect().width; document.addEventListener('mousemove', onMouseMove); document.addEventListener('mouseup', onMouseUp); });
+    });
+    function syncWidth(){ topInner.style.width = scroller.scrollWidth + 'px'; }
+    syncWidth(); new ResizeObserver(syncWidth).observe(scroller);
+    scroller.addEventListener('scroll', () => { topScroll.scrollLeft = scroller.scrollLeft; });
+    topScroll.addEventListener('scroll', () => { scroller.scrollLeft = topScroll.scrollLeft; });
+  })();
+  (function(){
+    const form = document.getElementById('dedupe-form');
+    if(!form) return;
+    form.addEventListener('submit', function(e){
+      const checked = form.querySelectorAll('input[name="fields"]:checked');
+      if(checked.length < 1 || checked.length > 4){ e.preventDefault(); alert('Please select between 1 and 4 fields.'); }
+    });
+  })();
+</script>
+</body>
+</html>

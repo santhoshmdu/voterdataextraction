@@ -1,0 +1,38 @@
+# SSH Keys (never commit these!)
+*.pem
+*.key
+voter-extraction-tool.pem
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+uploads/*
+!uploads/.gitkeep
+output/*
+!output/.gitkeep
+
+# Note: .env is NOT ignored (user wants to push it)
+# But be careful - this contains sensitive keys!
+

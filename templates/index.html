@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Voter Data Extraction Tool</title>
+    <link rel="icon" type="image/png" href="/static/favicon.png">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+      :root{ --brand1:#0b132b; --brand2:#0f7a7a; --brand-accent:#3a86ff; }
+      body, html { height: 100%; background: #f7f9ff; }
+      /* Light navbar for logo contrast */
+      .navbar { background:#ffffff; border-bottom:1px solid #e6ebf2; }
+      .navbar .navbar-brand { color:#0b132b; }
+      .navbar .btn { border-color:#d0d7e2; color:#0b132b; }
+      .navbar .btn:hover { background:#eef3fb; color:#0b132b; }
+      .pane-row { display: flex; gap: 1rem; height: calc(100vh - 64px); }
+      #leftPane { resize: horizontal; overflow: auto; min-width: 320px; max-width: 85vw; }
+      #rightPane { flex: 1 1 auto; min-width: 280px; overflow: auto; }
+      .card { border-radius: .6rem; overflow: hidden; box-shadow: 0 6px 14px rgba(16,24,40,.06); }
+      .card-header { background: #f7f9fc; font-weight: 600; }
+      .table-wrap { border: 1px solid #e6ebf2; border-radius: .5rem; overflow: auto; }
+      .table { table-layout: fixed; margin-bottom: 0; }
+      .table thead th { background: #eef3fb; position: sticky; top: 0; z-index: 2; padding: .5rem .75rem; }
+      .table tbody td { padding: .28rem .5rem; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .card-body.d-flex { min-height: 0; }
+      #data-table-scroll { flex: 1 1 auto; height: auto; overflow: auto; }
+      .col-expanded { white-space: normal !important; text-overflow: clip !important; }
+      th.resizable { position: relative; }
+      th .resizer { position: absolute; right: 0; top: 0; width: 6px; height: 100%; cursor: col-resize; user-select: none; }
+      th .resizer:after { content: ''; position: absolute; right: 2px; top: 25%; bottom: 25%; width: 2px; background: #c7cfdb; border-radius: 1px; }
+      .btn { border-radius: .4rem; }
+      .btn-primary { background: var(--brand-accent); border-color: var(--brand-accent); }
+      .btn-primary:hover { filter: brightness(0.95); }
+      #top-scroll { height: 16px; overflow-x: auto; overflow-y: hidden; border: 1px solid #e6ebf2; border-radius: .4rem; background: #fafbff; }
+      #top-scroll-inner { height: 1px; }
+      .brand-logo { height:28px; margin-right:6px; }
+      .usage-chip { background:#eef3fb; color:#0b132b; border:1px solid #d0d7e2; padding:.2rem .5rem; border-radius:999px; }
+      /* Fixed column widths to force horizontal scroll and clip content */
+      table.fixed-cols { width: 2100px; } /* total table width to exceed container */
+      table.fixed-cols thead th:nth-child(1),
+      table.fixed-cols tbody td:nth-child(1) { width: 260px; }
+      table.fixed-cols thead th:nth-child(2),
+      table.fixed-cols tbody td:nth-child(2) { width: 80px; }
+      table.fixed-cols thead th:nth-child(3),
+      table.fixed-cols tbody td:nth-child(3) { width: 140px; }
+      table.fixed-cols thead th:nth-child(4),
+      table.fixed-cols tbody td:nth-child(4) { width: 220px; }
+      table.fixed-cols thead th:nth-child(5),
+      table.fixed-cols tbody td:nth-child(5) { width: 240px; }
+      table.fixed-cols thead th:nth-child(6),
+      table.fixed-cols tbody td:nth-child(6) { width: 120px; }
+      table.fixed-cols thead th:nth-child(7),
+      table.fixed-cols tbody td:nth-child(7) { width: 80px; }
+      table.fixed-cols thead th:nth-child(8),
+      table.fixed-cols tbody td:nth-child(8) { width: 110px; }
+      table.fixed-cols thead th:nth-child(9),
+      table.fixed-cols tbody td:nth-child(9) { width: 140px; }
+      table.fixed-cols thead th:nth-child(10),
+      table.fixed-cols tbody td:nth-child(10) { width: 120px; }
+      table.fixed-cols thead th:nth-child(11),
+      table.fixed-cols tbody td:nth-child(11) { width: 120px; }
+      table.fixed-cols thead th:nth-child(12),
+      table.fixed-cols tbody td:nth-child(12) { width: 220px; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg">
+      <div class="container-fluid">
+        <a class="navbar-brand fw-semibold d-flex align-items-center" href="#"><img class="brand-logo" src="/static/logo.png" alt="Aram Analytics">Aram Analytics</a>
+        <div class="d-flex align-items-center gap-2">
+          <span class="small usage-chip">{% if has_api_key %}Using your API key{% elif usage_left is not none %}Uses left: {{ usage_left }} / 5{% endif %}</span>
+          <a class="btn btn-outline-secondary btn-sm" href="/settings">API Key</a>
+          <a class="btn btn-outline-secondary btn-sm" href="/history">History</a>
+          <span class="navbar-text me-3 small">Signed in as {{ user.username }}</span>
+          <a href="/logout" class="btn btn-outline-secondary btn-sm">Logout</a>
+        </div>
+      </div>
+    </nav>
+    {% with messages = get_flashed_messages(with_categories=True) %}
+    {% if messages %}
+      {% for category, msg in messages %}
+        <div class="alert alert-{{category}} alert-dismissible fade show m-3" role="alert">
+          {{ msg }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <div class="container-fluid mt-3">
+      {% if running_jobs and running_jobs|length > 0 %}
+      <div class="alert alert-info py-2 px-3 mb-2">
+        Processing {{ running_jobs|length }} job(s):
+        {% for r in running_jobs %}
+          <span class="badge bg-secondary me-1">#{{ r.id }} {{ r.status }}</span>
+          <form class="d-inline" method="post" action="/job/cancel/{{ r.id }}" onsubmit="return confirm('Cancel job #{{ r.id }}?');"><button class="btn btn-outline-danger btn-sm ms-1">Cancel</button></form>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <div class="pane-row">
+        <div id="leftPane" class="mb-4 flex-grow-1">
+          <div class="card h-100">
+            <div class="card-header d-flex flex-wrap gap-2 justify-content-between align-items-center">
+                <span>Upload Voter PDFs (max 5):</span>
+                <form action="/upload" method="post" enctype="multipart/form-data" class="d-inline">
+                    <input class="form-control form-control-sm d-inline" type="file" name="pdfs" accept="application/pdf" multiple required style="width:220px;display:inline-block;">
+                    <button class="btn btn-primary btn-sm" type="submit">Upload & Extract</button>
+                </form>
+                <form action="/" method="get" class="d-flex align-items-center gap-2">
+                  <select class="form-select form-select-sm" name="job_id" style="min-width:260px;" onchange="this.form.submit()">
+                    {% if not jobs_list %}
+                      <option value="">No finished sheets yet</option>
+                    {% else %}
+                      {% for j in jobs_list %}
+                        <option value="{{ j.id }}" {% if selected_job_id==j.id %}selected{% endif %}>Sheet #{{ j.id }} — {{ j.filename }}</option>
+                      {% endfor %}
+                    {% endif %}
+                  </select>
+                  <noscript><button class="btn btn-outline-secondary btn-sm" type="submit">View</button></noscript>
+                </form>
+                <a href="mailto:santhosh@aramanalytics.com?subject=Bulk%20extraction%20request&body=Please%20describe%20your%20PDF%20volume%20and%20requirements." class="btn btn-success btn-sm" target="_blank">Bulk Extraction →</a>
+                {% if job and job.result_file %}
+                <a href="/download/{{ job.id }}" class="btn btn-outline-secondary btn-sm">Download Excel</a>
+                {% endif %}
+            </div>
+            <div class="card-body d-flex flex-column">
+                <div id="progressBarContainer" class="mb-2" style="{% if job and job.status in ['pending','running'] %}display:block{% else %}display:none{% endif %}">
+                  <label class="form-label mb-1">Extraction Progress:</label>
+                  <div class="progress">
+                    <div id="jobProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" style="width:0%">0%</div>
+                  </div>
+                  <div id="jobStatusMsg" class="mt-2 text-secondary">Status: {{ job.status if job else 'idle' }}</div>
+                  <div id="processingAlert" class="alert alert-info py-2 px-3 mt-2" role="alert" style="display: none;">
+                    Processing your PDFs… This usually takes under 3 minutes. You can stay on this page.
+                  </div>
+                </div>
+                <div id="top-scroll" class="mb-2"><div id="top-scroll-inner"></div></div>
+                <div id="data-table-scroll" class="table-wrap">
+                  <div id="data-table-placeholder">
+                    {% if table_html %}
+                      <div id="tableWrap" class="expandable-table">{{ table_html|safe }}</div>
+                      <div class="form-text">Tips: Click a column header to expand text. Drag the thin bar at the right edge of headers to resize columns. Scroll to explore all data.</div>
+                    {% else %}
+                      <p class="text-muted">No data yet. Upload PDFs to begin, then results will display here.</p>
+                    {% endif %}
+                  </div>
+                </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="rightPane" class="mb-4">
+          <div class="card h-100">
+            <div class="card-header">Duplicate Checking Options</div>
+            <div class="card-body">
+                <form id="dedupe-form" action="/dedupe" method="post">
+                  <p>Select 1-4 fields to compare (e.g., Name and Father/Husband Name):</p>
+                  <div class="mb-2" id="dedupe-fields">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" name="fields" value="Name" id="f_name">
+                      <label class="form-check-label" for="f_name">Name</label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" name="fields" value="Father/Husband Name" id="f_fh">
+                      <label class="form-check-label" for="f_fh">Father/Husband Name</label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" name="fields" value="Age" id="f_age">
+                      <label class="form-check-label" for="f_age">Age</label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" name="fields" value="House Number" id="f_house">
+                      <label class="form-check-label" for="f_house">House Number</label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" name="fields" value="VoterID" id="f_vid">
+                      <label class="form-check-label" for="f_vid">VoterID</label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" name="fields" value="Gender" id="f_gender">
+                      <label class="form-check-label" for="f_gender">Gender</label>
+                    </div>
+                  </div>
+                  <button class="btn btn-warning w-100 mb-2" type="submit">Find Duplicates</button>
+                </form>
+                
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      (function(){
+        const wrap = document.getElementById('tableWrap');
+        const scroller = document.getElementById('data-table-scroll');
+        const topScroll = document.getElementById('top-scroll');
+        const topInner = document.getElementById('top-scroll-inner');
+        if(!wrap || !scroller || !topScroll || !topInner) return;
+        const table = wrap.querySelector('table');
+        if(!table) return;
+        table.classList.add('fixed-cols'); // enforce fixed widths regardless of content
+        const headers = table.querySelectorAll('thead th');
+        headers.forEach((th) => th.classList.add('resizable'));
+        headers.forEach((th, idx) => {
+          th.addEventListener('click', (e) => {
+            if(e.target.classList.contains('resizer')) return;
+            const rows = table.querySelectorAll('tr');
+            rows.forEach(r => { const cells = r.querySelectorAll('th, td'); if(cells[idx]) cells[idx].classList.toggle('col-expanded'); });
+          });
+          const resizer = document.createElement('div');
+          resizer.className = 'resizer'; th.appendChild(resizer);
+          let startX, startWidth;
+          const onMouseMove = (ev) => { const dx = ev.clientX - startX; th.style.width = Math.max(60, startWidth + dx) + 'px'; syncWidths(); };
+          const onMouseUp = () => { document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('mouseup', onMouseUp); };
+          resizer.addEventListener('mousedown', (ev) => { startX = ev.clientX; startWidth = th.getBoundingClientRect().width; document.addEventListener('mousemove', onMouseMove); document.addEventListener('mouseup', onMouseUp); });
+        });
+        function syncWidths(){ topInner.style.width = scroller.scrollWidth + 'px'; }
+        syncWidths(); new ResizeObserver(syncWidths).observe(scroller);
+        scroller.addEventListener('scroll', () => { topScroll.scrollLeft = scroller.scrollLeft; });
+        topScroll.addEventListener('scroll', () => { scroller.scrollLeft = topScroll.scrollLeft; });
+      })();
+    </script>
+    {% if job and job.status in ['pending','running'] %}
+    <script>
+      const jobId = {{ job.id }};
+      const bar = document.getElementById('jobProgressBar');
+      const statusMsg = document.getElementById('jobStatusMsg');
+      const alertBox = document.getElementById('processingAlert');
+      let startTs = Date.now();
+      function humanTime(sec){ const m=Math.floor(sec/60), s=sec%60; return (m>0? m+'m ':'')+s+'s'; }
+      function poll(){
+        fetch(`/job-status/${jobId}`)
+          .then(r=>r.json())
+          .then(d=>{
+            const pct = d.percent || 0;
+            bar.style.width = pct + '%';
+            bar.textContent = pct + '%';
+            statusMsg.textContent = 'Status: ' + (d.status || 'unknown');
+            const elapsed = Math.floor((Date.now()-startTs)/1000);
+            if(d.status === 'finished'){
+              alertBox.style.display = 'none';
+              window.location.reload();
+            } else if (d.status === 'error'){
+              alertBox.className = 'alert alert-danger py-2 px-3 mt-2';
+              alertBox.style.display = 'block';
+              alertBox.textContent = 'Processing failed. Please try again later.';
+            } else {
+              alertBox.style.display = 'block';
+              if(elapsed < 180){
+                alertBox.className = 'alert alert-info py-2 px-3 mt-2';
+                alertBox.textContent = `Processing your PDFs… (${humanTime(elapsed)}) This usually takes under 3 minutes.`;
+              } else {
+                alertBox.className = 'alert alert-warning py-2 px-3 mt-2';
+                alertBox.textContent = 'Processing is taking longer than usual. You can come back later; your sheet will appear in History once completed.';
+              }
+              setTimeout(poll, 3000);
+            }
+          }).catch(()=> setTimeout(poll, 4000));
+      }
+      poll();
+    </script>
+    {% endif %}
+    <script>
+      // Enforce 2-4 checkbox selections before submitting dedupe form
+      (function(){
+        const form = document.getElementById('dedupe-form');
+        if(!form) return;
+        form.addEventListener('submit', function(e){
+          const checked = form.querySelectorAll('input[name="fields"]:checked');
+          if(checked.length < 1 || checked.length > 4){
+            e.preventDefault();
+            alert('Please select between 1 and 4 fields.');
+          }
+        });
+      })();
+    </script>
+</body>
+</html>
