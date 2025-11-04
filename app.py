@@ -48,7 +48,7 @@ class User(UserMixin):
 @login_manager.user_loader
 def load_user(user_id):
     try:
-        db = MySQLdb.connect(host='localhost', user='root', passwd='', db=app.config['MYSQL_DB'])
+        db = MySQLdb.connect(host='localhost', user='root', passwd='12345678', db=app.config['MYSQL_DB'])
         cur = db.cursor()
         cur.execute('SELECT id, username, is_admin FROM users WHERE id=%s', (user_id,))
         row = cur.fetchone()
@@ -74,7 +74,7 @@ def index():
     running_jobs = []
     selected_job_id = requestArgsJobId = request.args.get('job_id', type=int)
     try:
-        db = MySQLdb.connect(host='localhost', user='root', passwd='', db=app.config['MYSQL_DB'])
+        db = MySQLdb.connect(host='localhost', user='root', passwd='12345678', db=app.config['MYSQL_DB'])
         cur = db.cursor()
         # Running/pending jobs indicator
         cur.execute(
@@ -153,7 +153,7 @@ def register():
             for e in errors:
                 flash(e, 'danger')
             return render_template('register.html')
-        db = MySQLdb.connect(host='localhost', user='root', passwd='', db=app.config['MYSQL_DB'])
+        db = MySQLdb.connect(host='localhost', user='root', passwd='12345678', db=app.config['MYSQL_DB'])
         cur = db.cursor()
         cur.execute('SELECT id FROM users WHERE email=%s', (email,))
         if cur.fetchone():
@@ -177,7 +177,7 @@ def login():
     if request.method == 'POST':
         email = request.form.get('username')
         pw = request.form.get('password')
-        db = MySQLdb.connect(host='localhost', user='root', passwd='', db=app.config['MYSQL_DB'])
+        db = MySQLdb.connect(host='localhost', user='root', passwd='12345678', db=app.config['MYSQL_DB'])
         cur = db.cursor()
         cur.execute('SELECT id, username, password_hash, is_admin FROM users WHERE email=%s', (email,))
         user = cur.fetchone()
@@ -258,7 +258,7 @@ def settings():
 
 def launch_extraction_job(job_id, pdf_path, location_prefix='GEN', user_api_key=None):
     def run_extraction():
-        db = MySQLdb.connect(host='localhost', user='root', passwd='', db=app.config['MYSQL_DB'])
+        db = MySQLdb.connect(host='localhost', user='root', passwd='12345678', db=app.config['MYSQL_DB'])
         cur = db.cursor()
         cur.execute("UPDATE extraction_jobs SET status='running' WHERE id=%s", (job_id,))
         db.commit()
@@ -366,7 +366,7 @@ def upload():
 
 # Utility for marking job as finished (CLI)
 def mark_job_finished(job_id, status):
-    db = MySQLdb.connect(host='localhost', user='root', passwd='', db=app.config['MYSQL_DB'])
+    db = MySQLdb.connect(host='localhost', user='root', passwd='12345678', db=app.config['MYSQL_DB'])
     cur = db.cursor()
     cur.execute('UPDATE extraction_jobs SET status=%s WHERE id=%s', (status, job_id))
     db.commit()
@@ -381,7 +381,7 @@ def migrate_db_once():
     if migration_done:
         return
     try:
-        db = MySQLdb.connect(host='localhost', user='root', passwd='', db=app.config['MYSQL_DB'])
+        db = MySQLdb.connect(host='localhost', user='root', passwd='12345678', db=app.config['MYSQL_DB'])
         cursor = db.cursor()
         with open('db_init.sql', 'r') as f:
             sql = f.read()
@@ -435,7 +435,7 @@ def handle_error(msg, exception=None):
 def job_status(job_id):
     # (Stub: Replace with real DB status lookup)
     # Example: return current percent, status, error msg
-    db = MySQLdb.connect(host='localhost', user='root', passwd='', db=app.config['MYSQL_DB'])
+    db = MySQLdb.connect(host='localhost', user='root', passwd='12345678', db=app.config['MYSQL_DB'])
     cursor = db.cursor()
     cursor.execute('SELECT status, error_message FROM extraction_jobs WHERE id=%s', (job_id,))
     row = cursor.fetchone()
@@ -447,7 +447,7 @@ def job_status(job_id):
     return jsonify({"percent": percent, "status": status, "error": error})
 
 def get_db():
-    return MySQLdb.connect(host='localhost', user='root', passwd='', db=app.config['MYSQL_DB'])
+    return MySQLdb.connect(host='localhost', user='root', passwd='12345678', db=app.config['MYSQL_DB'])
 
 @app.route('/history')
 @login_required
