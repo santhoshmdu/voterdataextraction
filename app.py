@@ -19,8 +19,8 @@ import time
 load_dotenv()
 
 app = Flask(__name__)
-# Configure for subpath deployment
-app.config['APPLICATION_ROOT'] = os.getenv('APPLICATION_ROOT', '/voter')
+# Configure for subpath deployment (use '/voter' for subpath, empty for subdomain)
+app.config['APPLICATION_ROOT'] = os.getenv('APPLICATION_ROOT', '')
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'temp-secret-key')
 # MySQL Config
 app.config['MYSQL_HOST'] = os.getenv('MYSQL_HOST', 'localhost')
