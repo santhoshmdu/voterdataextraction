@@ -349,7 +349,7 @@ pip install opencv-python
 |--------|-------|
 | **Accuracy** | 99.0% |
 | **Processing Speed** | 1500+ RPM |
-| **Average Response Time** | <2s per document |
+| **Average Response Time** | <2s per page |
 | **Supported Formats** | PDF, JPG, PNG |
 | **Concurrent Requests** | 50+ |
 
