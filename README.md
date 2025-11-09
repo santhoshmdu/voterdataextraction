@@ -33,7 +33,7 @@ Show Image
 </tr>
 </table>
 
-⚡ Note: Live demo has limited features. Full batch processing code available in this repository.
+⚡ Note: Live demo has limited features. Full batch processing available.
 
 </div>
 
