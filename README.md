@@ -17,6 +17,25 @@
 </div>
 
 ---
+📦 Need Bulk/Batch Processing?
+<table>
+<tr>
+<td align="center" width="50%">
+🚀 Enterprise Features Available
+Bulk Processing • Batch Jobs • Custom Integration
+API Access • Priority Support • SLA Guaranteed
+</td>
+<td align="center" width="50%">
+📞 Contact 8148983135
+Show Image
+Show Image
+</td>
+</tr>
+</table>
+
+⚡ Note: Live demo has limited features. Full batch processing code available in this repository.
+
+</div>
 
 ## 🎯 Overview
 
